@@ -32,6 +32,15 @@ const startServer = async () => {
     // 3. Start Apollo
     await server.start();
 
+
+       app.get('/', (_req, res) => {
+      res.status(200).json({
+        message: "Welcome to the DC-Workforce-Backend API",
+        client: "/graphql", // if you have Swagger/OpenAPI
+        health: "/health"
+      });
+    });
+
     // 4. Apply Middlewares
     // We apply CORS and JSON parsing specifically to the /graphql endpoint
     app.use(
@@ -43,6 +52,8 @@ const startServer = async () => {
       })
     );
 
+ 
+
     // 5. REST Health Check (Good for monitoring Abuja HQ uptime)
     app.get('/health', (_req, res) => {
       res.status(200).json({ 
@@ -52,6 +63,7 @@ const startServer = async () => {
       });
     });
 
+    
 
     // 6. Start the Express Listener
     app.listen(PORT, () => {
