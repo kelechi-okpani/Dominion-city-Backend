@@ -12,49 +12,36 @@ import { createContext } from './context.js';
 import { IResolverContext } from './context.js'; // Ensure this matches your context file export
 import './jobs/instagram-sync.js';
 
+
 const startServer = async () => {
   const app = express();
   const PORT = Number(process.env.PORT) || 4000;
 
   try {
-    // 1. Establish Database Connection
     await connectDB();
     console.log('✅ Database connection established.');
 
-    // 2. Initialize Apollo Server
-    // Passing IResolverContext as a generic ensures type safety in your resolvers
     const server = new ApolloServer<IResolverContext>({
       typeDefs,
       resolvers,
-      introspection: process.env.NODE_ENV !== 'production',
+      introspection: true, // Set to true for now to help you debug on Render
     });
 
-    // 3. Start Apollo
     await server.start();
 
+    // 1. Global Middlewares (Move these above the routes)
+    app.use(cors<cors.CorsRequest>());
+    app.use(express.json()); // Use native express.json() instead of body-parser
 
-       app.get('/', (_req, res) => {
+    // 2. Base Routes
+    app.get('/', (_req, res) => {
       res.status(200).json({
         message: "Welcome to the DC-Workforce-Backend API",
-        client: "/graphql", // if you have Swagger/OpenAPI
+        client: "/graphql",
         health: "/health"
       });
     });
 
-    // 4. Apply Middlewares
-    // We apply CORS and JSON parsing specifically to the /graphql endpoint
-    app.use(
-      '/graphql',
-      cors<cors.CorsRequest>(),
-       bodyParser.json(),
-      expressMiddleware(server, {
-        context: async ({ req }) => createContext({ req }),
-      })
-    );
-
- 
-
-    // 5. REST Health Check (Good for monitoring Abuja HQ uptime)
     app.get('/health', (_req, res) => {
       res.status(200).json({ 
         status: 'UP', 
@@ -63,18 +50,18 @@ const startServer = async () => {
       });
     });
 
-    
+    // 3. Apollo Middleware
+    // By placing express.json() above, Apollo will always find req.body
+    app.use(
+      '/graphql',
+      expressMiddleware(server, {
+        context: async ({ req }) => createContext({ req }),
+      })
+    );
 
-    // 6. Start the Express Listener
     app.listen(PORT, () => {
-      console.log(`
-          🚀 DC-Workforce Server Ready
-          📡 Endpoint: http://localhost:${PORT}/graphql
-          🛠️  Environment: ${process.env.NODE_ENV || 'development'}
-                `);
+      console.log(`🚀 DC-Workforce Server Ready at port ${PORT}`);
     });
-
-
 
   } catch (error) {
     console.error("💥 Failed to initialize server:", error);
