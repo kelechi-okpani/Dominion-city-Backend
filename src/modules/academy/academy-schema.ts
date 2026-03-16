@@ -56,7 +56,7 @@ input StudentInput {
   }
 
   extend type Mutation {
-    enrollStudent(input: StudentInput!): Academy
+    enrollStudent(input: StudentInput!): AcademyStudent
     adminEnrollStudent(input: EnrollStudentInput!): AcademyStudent
     updateStudentStatus(id: ID!, status: String!): AcademyStudent
   }
