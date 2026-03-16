@@ -25,10 +25,9 @@ input StudentInput {
   name: String!
   email: String!
   phone: String!
-  courseName: String!
+  courseName: CourseName!
   location: String
   date: String
-  branchId: String
 }
 
   input EnrollStudentInput {

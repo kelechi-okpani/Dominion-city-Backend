@@ -66,7 +66,7 @@ export const academyResolvers = {
       try {
         const studentData = {
           ...input,
-          branchId: user?.branchId || input.branchId || null,
+          // branchId: user?.branchId || input.branchId || null,
           addedBy: user?.id || "PUBLIC_WEBSITE",
           date: input.date && input.date.trim() !== "" ? input.date : new Date().toISOString(),
         };
