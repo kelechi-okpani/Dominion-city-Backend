@@ -10,8 +10,7 @@ import { connectDB } from './config/db.js';
 import { typeDefs, resolvers } from './modules/index.js';
 import { createContext } from './context.js';
 import { IResolverContext } from './context.js'; // Ensure this matches your context file export
-import { syncInstagramFeed } from './jobs/instagram-sync.js';
-
+import './jobs/instagram-sync.js';
 
 const startServer = async () => {
   const app = express();
@@ -53,7 +52,6 @@ const startServer = async () => {
       });
     });
 
-    await syncInstagramFeed();
 
     // 6. Start the Express Listener
     app.listen(PORT, () => {
