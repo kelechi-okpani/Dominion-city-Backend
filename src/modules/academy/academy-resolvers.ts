@@ -45,7 +45,7 @@ export const academyResolvers = {
   },
 
   Mutation: {
-    enrollStudent: async (_: any, { input }: any, { user }: IResolverContext) => {
+    adminEnrollStudent: async (_: any, { input }: any, { user }: IResolverContext) => {
       if (!user) throw new GraphQLError('Unauthorized');
 
       try {
@@ -61,6 +61,25 @@ export const academyResolvers = {
           ? 'Student already enrolled in this course.' 
           : 'Failed to enroll student. Ensure the course name is correct.');
       }
-    }
+    },
+    enrollStudent: async (_: any, { input }: any, { user }: IResolverContext) => {
+      try {
+        const studentData = {
+          ...input,
+          branchId: user?.branchId || input.branchId || null,
+          addedBy: user?.id || "PUBLIC_WEBSITE",
+          date: input.date && input.date.trim() !== "" ? input.date : new Date().toISOString(),
+        };
+        const student = new AcademyModel(studentData);
+        const result = await student.save();
+        return result;
+      } catch (error: any) {
+        console.error("Enrollment Error:", error);
+        if (error.code === 11000) {
+          throw new GraphQLError('This email is already registered for this course.');
+        }
+        throw new GraphQLError('We could not complete your registration. Please try again later.');
+      }
+    },
   }
 };

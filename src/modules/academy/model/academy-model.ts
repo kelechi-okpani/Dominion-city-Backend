@@ -17,7 +17,7 @@ export interface IAcademy extends Document {
 
 const AcademySchema = new Schema<IAcademy>(
   {
-    branchId: { type: Schema.Types.ObjectId, ref: 'Branch', required: true, index: true },
+    branchId: { type: Schema.Types.ObjectId, ref: 'Branch', required: false, index: true },
     name: { type: String, required: true, trim: true },
     email: { type: String, lowercase: true, trim: true },
     courseName: { 
@@ -33,7 +33,7 @@ const AcademySchema = new Schema<IAcademy>(
       enum: ['Enrolled', 'Completed', 'Dropped'], 
       default: 'Enrolled' 
     },
-    addedBy: { type: Schema.Types.ObjectId, ref: 'BranchUser', required: true }
+    addedBy: { type: Schema.Types.ObjectId, ref: 'BranchUser', required: false }
   },
   { timestamps: true }
 );

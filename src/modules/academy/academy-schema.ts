@@ -11,7 +11,7 @@ export const academyTypeDefs = gql`
 
   type AcademyStudent {
     id: ID!
-    branchId: ID!
+    branchId: ID
     name: String!
     email: String
     courseName: String!
@@ -20,6 +20,16 @@ export const academyTypeDefs = gql`
     date: String!
     status: String!
   }
+
+input StudentInput {
+  name: String!
+  email: String!
+  phone: String!
+  courseName: String!
+  location: String
+  date: String
+  branchId: String
+}
 
   input EnrollStudentInput {
     name: String!
@@ -46,7 +56,8 @@ export const academyTypeDefs = gql`
   }
 
   extend type Mutation {
-    enrollStudent(input: EnrollStudentInput!): AcademyStudent
+    enrollStudent(input: StudentInput!): Academy
+    adminEnrollStudent(input: EnrollStudentInput!): AcademyStudent
     updateStudentStatus(id: ID!, status: String!): AcademyStudent
   }
 `;
