@@ -1,25 +1,4 @@
 import { gql } from 'apollo-server-express';
-import { UserRole } from "./model/branch-model.js";
-
-export interface BranchProfile {
-  id: string;
-  fullName: string;
-  email: string;
-  role: UserRole;
-  branch_location: string;
-  isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
-}
-
-
-export interface CreateBranchInput {
-  fullName: string;
-  email: string;
-  password: string;
-  branch_location: string;
-}
-
 
 export const branchCoreTypeDefs = gql`
   enum Role {
@@ -27,35 +6,55 @@ export const branchCoreTypeDefs = gql`
     USER
   }
 
+enum AbujaBranchName {
+    ABUJA_HQ
+    WUSE
+    JABI
+    GWARINPA
+    APO
+    LUGBE
+    KUJE
+    KUBWA
+    MAITAMA
+    ASOKORO
+    GARKI
+    UTAKO
+    NYANYA_MARARABA
+    DAWAKI
+  }
+
+
   type BranchProfile {
     id: ID!
-    branchName: String!
-    branchId: String!
+    fullName: String!
     email: String!
     role: Role!
-    location: String
+    branchName: AbujaBranchName!
     isActive: Boolean
     createdAt: String
     updatedAt: String
   }
 
+  type LoginResponse {
+    token: String!
+    user: BranchProfile!
+  }
+
   extend type Query {
-    # Returns the currently logged-in account (HQ or Satellite)
     me: BranchProfile
-    
-    # ADMIN ONLY: Returns all registered satellite branches
     getSatelliteBranches: [BranchProfile]
   }
 
   extend type Mutation {
-    # Public/Self-Service: Create a new satellite branch account
-    # Note: Returns the profile, but isActive will be false by default
-    registerSatellite(
-      branchName: String!, 
-      branchId: String!, 
+    # Self-registration for branches
+    register(
+      fullName: String!, 
       email: String!, 
-      password: String,
-      location: String
+      password: String!,
+      branchName: AbujaBranchName!
     ): BranchProfile
+
+    # Login for both ADMIN and USER
+    login(email: String!, password: String!): LoginResponse
   }
 `;
