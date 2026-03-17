@@ -62,24 +62,32 @@ export const academyResolvers = {
           : 'Failed to enroll student. Ensure the course name is correct.');
       }
     },
+
     enrollStudent: async (_: any, { input }: any, { user }: IResolverContext) => {
       try {
         const studentData = {
           ...input,
           // branchId: user?.branchId || input.branchId || null,
-          addedBy: user?.id || "PUBLIC_WEBSITE",
-          date: input.date && input.date.trim() !== "" ? input.date : new Date().toISOString(),
+          addedBy: user?.id || null, 
+          date: input.date || new Date().toISOString(),
         };
         const student = new AcademyModel(studentData);
         const result = await student.save();
         return result;
       } catch (error: any) {
-        console.error("Enrollment Error:", error);
-        if (error.code === 11000) {
-          throw new GraphQLError('This email is already registered for this course.');
-        }
-        throw new GraphQLError('We could not complete your registration. Please try again later.');
-      }
-    },
+          console.error("Enrollment Error:", error);
+
+            if (error.code === 11000) {
+              throw new GraphQLError('This email is already registered for this course.');
+            }
+
+            // Handle Mongoose-specific validation errors gracefully
+            if (error.name === 'ValidationError') {
+              throw new GraphQLError('Please check your input fields and try again.');
+            }
+
+            throw new GraphQLError('We could not complete your registration at this time.');
+          }
+      },
   }
 };

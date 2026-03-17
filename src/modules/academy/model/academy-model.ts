@@ -23,9 +23,9 @@ const AcademySchema = new Schema<IAcademy>(
     courseName: { 
       type: String, 
       required: true,
-      enum: ['DLI BASIC', 'DLI ADVANCE', 'DCA BASIC', 'DCA ADVANCE'] 
+      enum: ['DLI_BASIC', 'DLI_ADVANCE', 'DCA_BASIC', 'DCA_ADVANCE'] 
     },
-    location: { type: String, required: true },
+    location: { type: String, required: false, default: 'Online' },
     phone: { type: String, required: true },
     date: { type: Date, default: Date.now },
     status: { 
