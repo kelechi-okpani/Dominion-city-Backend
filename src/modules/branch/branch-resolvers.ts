@@ -1,8 +1,8 @@
-import * as bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { GraphQLError } from 'graphql';
 import { BranchUserModel, UserRole } from './model/branch-model.js';
 import { IResolverContext } from '../../context.js';
+import bcrypt from 'bcryptjs';
 
 export const branchCoreResolvers = {
   Query: {
