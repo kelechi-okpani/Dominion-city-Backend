@@ -108,26 +108,38 @@ export const academyResolvers = {
         })
       );
 
-      for await (const record of parser) {
-        // Validation: Ensure course names match your Enum strictly
-        const validCourses = ['DLI BASIC', 'DLI ADVANCE', 'DCA BASIC', 'DCA ADVANCE'];
-        const course = record.CourseName?.toUpperCase().replace('_', ' '); // Flexible formatting
+      
+      
+        for await (const record of parser) {
+          // 1. Updated Valid Course List
+          const validCourses = ['DLI_BASIC', 'DLI_ADVANCE', 'DCA_BASIC', 'DCA_ADVANCE'];
+          
+          // Normalize input: uppercase and ensure spaces become underscores to match your list
+          const course = record.CourseName?.toUpperCase().trim().replace(/\s+/g, '_');
 
-        if (validCourses.includes(course)) {
-          results.push({
-            name: record.Name,
-            email: record.Email?.toLowerCase(),
-            courseName: course,
-            location: record.Location || 'Main Campus',
-            phone: record.Phone,
-            date: record.Date ? new Date(record.Date) : new Date(),
-            branchId: user.branchId,
-            addedBy: user.id,      
-            status: 'Enrolled'
-          });
+          if (validCourses.includes(course)) {
+            
+            // 2. Phone Number Formatting
+            let formattedPhone = record.Phone?.toString().trim() || '';
+            if (formattedPhone.length === 10) {
+              formattedPhone = `0${formattedPhone}`;
+            }
+
+            results.push({
+              name: record.Name,
+              email: record.Email?.toLowerCase(),
+              courseName: course,
+              location: record.Location || 'Main Campus',
+              phone: formattedPhone, // Uses the 0-prepended version
+              date: record.Date ? new Date(record.Date) : new Date(),
+              branchId: user.branchId,
+              addedBy: user.id,      
+              status: 'Enrolled'
+            });
+          }
         }
-      }
 
+        
       // 3. Database Insertion
       try {
         // ordered: false ensures that if one row (like a duplicate email) fails, 
