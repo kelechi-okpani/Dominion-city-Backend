@@ -9,6 +9,8 @@ export const academyTypeDefs = gql`
     DCA_ADVANCE
   }
 
+  scalar Upload
+
   type UploadResponse {
     success: Boolean!
     message: String!

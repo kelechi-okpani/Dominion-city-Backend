@@ -4,12 +4,13 @@ import { ApolloServer } from '@apollo/server';
 import { expressMiddleware } from '@as-integrations/express4';
 import cors from 'cors';
 import bodyParser from 'body-parser';
+import { graphqlUploadExpress, GraphQLUpload } from 'graphql-upload-ts';
 
 // Local imports
 import { connectDB } from './config/db.js';
 import { typeDefs, resolvers } from './modules/index.js';
 import { createContext } from './context.js';
-import { IResolverContext } from './context.js'; // Ensure this matches your context file export
+import { IResolverContext } from './context.js'; 
 import './jobs/instagram-sync.js';
 
 
@@ -54,6 +55,8 @@ const startServer = async () => {
     // By placing express.json() above, Apollo will always find req.body
     app.use(
       '/graphql',
+      graphqlUploadExpress({ maxFileSize: 10000000, maxFiles: 1 }), 
+      express.json(),
       expressMiddleware(server, {
         context: async ({ req }) => createContext({ req }),
       })

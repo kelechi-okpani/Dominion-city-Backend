@@ -91,7 +91,7 @@ export const academyResolvers = {
           }
     },
 
-     uploadAcademyCSV: async (_: any, { file }: any, { user }: IResolverContext) => {
+    uploadEnrolledStudent: async (_: any, { file }: any, { user }: IResolverContext) => {
       // 1. Check Auth
       if (!user) throw new GraphQLError('Unauthorized');
 
