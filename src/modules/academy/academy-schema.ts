@@ -9,6 +9,12 @@ export const academyTypeDefs = gql`
     DCA_ADVANCE
   }
 
+  type UploadResponse {
+    success: Boolean!
+    message: String!
+    count: Int
+  }
+
   type AcademyStudent {
     id: ID!
     branchId: ID
@@ -57,6 +63,8 @@ input StudentInput {
   extend type Mutation {
     enrollStudent(input: StudentInput!): AcademyStudent
     adminEnrollStudent(input: EnrollStudentInput!): AcademyStudent
+    uploadEnrolledStudent(file: Upload!): UploadResponse!
+
     updateStudentStatus(id: ID!, status: String!): AcademyStudent
   }
 `;
