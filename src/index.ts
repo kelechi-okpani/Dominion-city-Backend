@@ -25,7 +25,8 @@ const startServer = async () => {
     const server = new ApolloServer<IResolverContext>({
       typeDefs,
       resolvers,
-      introspection: true, // Set to true for now to help you debug on Render
+      introspection: true, 
+      csrfPrevention: false,
     });
 
     await server.start();
