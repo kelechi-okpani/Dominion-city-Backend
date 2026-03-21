@@ -147,23 +147,19 @@ export const academyResolvers = {
 
         // 4. Database Insertion
         try {
-          // ordered: false ensures that if one row fails (e.g. duplicate email), 
-          // the others still succeed.
           const docs = await AcademyModel.insertMany(results, { ordered: false });
-          
           return {
             success: true,
             message: `Successfully imported ${docs.length} students to your branch.`,
             count: docs.length
           };
         } catch (err: any) {
-          // Mongoose insertMany returns successfully inserted docs in err.insertedDocs 
-          // when ordered is false and a bulk write error occurs.
-          const insertedCount = err.insertedDocs?.length || 0;
+         const insertedCount = err.insertedDocs?.length || 0;
+          const duplicateCount = results.length - insertedCount;
           
           return {
-            success: true,
-            message: `Import complete. Added ${insertedCount} records (skipped duplicates or invalid data).`,
+           success: true,
+            message: `Import complete. Added ${insertedCount} students. ${duplicateCount} duplicates were skipped.`,
             count: insertedCount
           };
         }
