@@ -5,6 +5,20 @@ import { IResolverContext } from '../../context.js';
 import { parse } from 'csv-parse';
 import { GraphQLUpload } from 'graphql-upload-ts';
 
+
+interface IStudentCSVRow {
+  name: string;
+  email: string;
+  courseName: string;
+  location: string;
+  phone: string;
+  date: Date;
+  branchId: string;
+  addedBy: string;
+  status: string;
+}
+
+
 export const academyResolvers = {
   Upload: GraphQLUpload,
   Query: {
@@ -93,86 +107,94 @@ export const academyResolvers = {
           }
     },
 
-        uploadEnrolledStudent: async (_: any, { file }: any, { user }: IResolverContext) => {
-        // 1. Check Auth
-        if (!user) throw new GraphQLError('Unauthorized');
+    uploadEnrolledStudent: async (_, { file }, { user }:IResolverContext) => {
+      // 1. Auth Check
+      if (!user) throw new GraphQLError('Unauthorized');
 
-        // 2. Resolve the file promise
-        const upload = await file;
-        
-        // Validation check for the stream function
-        if (!upload || typeof upload.createReadStream !== 'function') {
-          throw new GraphQLError('Invalid file upload: createReadStream is missing.');
-        }
+      // 2. Prepare Stream
+      const { createReadStream } = await file;
+      const stream = createReadStream();
+    const results: IStudentCSVRow[] = [];
+    const skippedRows: string[] = [];
+    const validCourses = ['DLI_BASIC', 'DLI_ADVANCE', 'DCA_BASIC', 'DCA_ADVANCE'];
 
-        const stream = upload.createReadStream();
-        const results: any[] = [];
+      const parser = stream.pipe(
+        parse({
+          // Turns "Course Name" into "coursename" key
+          columns: (header) => header.map(h => h.toLowerCase().trim().replace(/\s+/g, '')),
+          skip_empty_lines: true,
+          trim: true,
+        })
+      );
 
-        // 3. Parse the stream
-        const parser = stream.pipe(
-          parse({
-            columns: (header) => header.map((h: string) => h.toLowerCase().trim().replace(/\s+/g, '')),
-            skip_empty_lines: true,
-            trim: true,
-          })
-        );
+      for await (const record of parser) {
+        // --- COURSE NORMALIZATION ---
+        // Converts "DLI ADVANCE" -> "DLI_ADVANCE"
+        const rawCourse = record.coursename || "";
+        const normalizedCourse = rawCourse.trim().toUpperCase().replace(/\s+/g, '_');
 
-        for await (const record of parser) {
-          // Define valid courses with underscores
-          const validCourses = ['DLI_BASIC', 'DLI_ADVANCE', 'DCA_BASIC', 'DCA_ADVANCE'];
+        if (normalizedCourse && validCourses.includes(normalizedCourse)) {
           
-          // Normalize input: uppercase and convert spaces to underscores
-          const course = record.CourseName?.toUpperCase().trim().replace(/\s+/g, '_');
-          const rawCourse = record.coursename || "";
-          const normalizedCourse = rawCourse.toUpperCase().trim().replace(/\s+/g, '_');
-
-          if (validCourses.includes(course)) {
-            // Phone Number Formatting: Add leading '0' if 10 digits
-            let formattedPhone = record.Phone?.toString().trim() || '';
-            if (formattedPhone.length === 10) {
-              formattedPhone = `0${formattedPhone}`;
-            }
-
-            let studentDate = new Date();
-            if (record.date) {
-              const [day, month, year] = record.date.split('/');
-              // Note: Months are 0-indexed in JS (January is 0)
-              studentDate = new Date(Number(year), Number(month) - 1, Number(day));
-            }
-
-            results.push({
-              name: record.Name,
-              email: record.Email?.toLowerCase(),
-              courseName: normalizedCourse,
-              location: record.Location || 'DC ABUJA GUDU HQ',
-              phone: formattedPhone,
-              date: studentDate,
-              branchId: user.branchId,
-              addedBy: user.id,      
-              status: 'Enrolled'
-            });
+          // --- PHONE FORMATTING ---
+          // Cleans spaces/dashes and ensures leading zero for 10-digit numbers
+          let rawPhone = record.phone?.toString().replace(/\s+|-|\(|\)/g, '').trim() || '';
+          if (rawPhone.length === 10 && !rawPhone.startsWith('0')) {
+            rawPhone = `0${rawPhone}`;
           }
-        }
 
-        // 4. Database Insertion
-        try {
-          const docs = await AcademyModel.insertMany(results, { ordered: false });
-
-          return {
-            success: true,
-            message: `Successfully imported ${docs.length} students to your branch.`,
-            count: docs.length
-          };
-        } catch (err: any) {
-         const insertedCount = err.insertedDocs?.length || 0;
-          const duplicateCount = results.length - insertedCount;
-          
-          return {
-           success: true,
-            message: `Import complete. Added ${insertedCount} students. ${duplicateCount} duplicates were skipped.`,
-            count: insertedCount
-          };
-        }
+          // --- DATE PARSING ---
+          // Handles "21/11/2025" or Excel Serial Numbers
+          let studentDate = new Date();
+          if (record.date) {
+            const dateStr = String(record.date).trim();
+            if (dateStr.includes('/')) {
+              const [d, m, y] = dateStr.split('/');
+              studentDate = new Date(Number(y), Number(m) - 1, Number(d));
+            } else if (!isNaN(Number(dateStr))) {
+              // Convert Excel Serial to JS Date
+              studentDate = new Date(new Date(1899, 11, 30).getTime() + Number(dateStr) * 86400000);
+            }
           }
+
+          results.push({
+            name: record.name?.trim(),
+            email: record.email?.toLowerCase().trim(),
+            courseName: normalizedCourse,
+            location: record.location || 'DC ABUJA GUDU HQ',
+            phone: rawPhone,
+            date: studentDate,
+            branchId: user.branchId,
+            addedBy: user.id,
+            status: 'Enrolled'
+          });
+        } else {
+          skippedRows.push(record.name || 'Unknown');
+          console.log(`Skipped: ${record.name} - Invalid Course: ${rawCourse}`);
+        }
+      }
+
+      // 3. Database Operation
+      if (results.length === 0) {
+        throw new GraphQLError('No valid rows found. Please check Course Name values.');
+      }
+
+      try {
+        // ordered: false ensures duplicates don't stop the whole import
+        const docs = await AcademyModel.insertMany(results, { ordered: false });
+        return {
+          success: true,
+          message: `Successfully imported ${docs.length} students. ${skippedRows.length} rows skipped.`,
+          count: docs.length
+        };
+      } catch (err:any) {
+        // If a bulk write error occurs (like duplicates), get successfully inserted docs
+        const insertedCount = err.insertedDocs?.length || 0;
+        return {
+          success: true,
+          message: `Import complete. Added ${insertedCount} students. Duplicates were skipped.`,
+          count: insertedCount
+        };
+      }
+    },
   }
 };
