@@ -24,7 +24,10 @@ const startServer = async () => {
 
     const server = new ApolloServer<IResolverContext>({
       typeDefs,
-      resolvers,
+    resolvers: {
+        Upload: GraphQLUpload, // 1. CRITICAL: Ensure the Upload scalar is explicitly registered here
+        ...resolvers,
+      },
       introspection: true, 
       csrfPrevention: false,
     });
@@ -52,11 +55,11 @@ const startServer = async () => {
       });
     });
 
+    app.use(graphqlUploadExpress({ maxFileSize: 10000000, maxFiles: 1 }));
     // 3. Apollo Middleware
-    // By placing express.json() above, Apollo will always find req.body
+  
     app.use(
       '/graphql',
-      graphqlUploadExpress({ maxFileSize: 10000000, maxFiles: 1 }), 
       express.json(),
       expressMiddleware(server, {
         context: async ({ req }) => createContext({ req }),

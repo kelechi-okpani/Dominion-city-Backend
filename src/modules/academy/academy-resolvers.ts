@@ -108,23 +108,31 @@ export const academyResolvers = {
     },
 
     uploadEnrolledStudent: async (_, { file }, { user }:IResolverContext) => {
-      // 1. Auth Check
-      if (!user) throw new GraphQLError('Unauthorized');
+        // 1. Auth Check
+        if (!user) throw new GraphQLError('Unauthorized');
 
-      // 2. Prepare Stream
-      const { createReadStream } = await file;
-      const stream = createReadStream();
-    const results: IStudentCSVRow[] = [];
-    const skippedRows: string[] = [];
-    const validCourses = ['DLI_BASIC', 'DLI_ADVANCE', 'DCA_BASIC', 'DCA_ADVANCE'];
+           // 2. Prepare Stream
+           const uploadedFile = await file;
+          // const { createReadStream } = await file;
 
-      const parser = stream.pipe(
-        parse({
-          // Turns "Course Name" into "coursename" key
-          columns: (header) => header.map(h => h.toLowerCase().trim().replace(/\s+/g, '')),
-          skip_empty_lines: true,
-          trim: true,
-        })
+          if (!uploadedFile) {
+            throw new GraphQLError('File missing in the request. Check middleware ordering.');
+          }
+
+          const { createReadStream, filename } = uploadedFile;
+
+          const stream = createReadStream();
+          const results: IStudentCSVRow[] = [];
+          const skippedRows: string[] = [];
+          const validCourses = ['DLI_BASIC', 'DLI_ADVANCE', 'DCA_BASIC', 'DCA_ADVANCE'];
+
+        const parser = stream.pipe(
+          parse({
+            // Turns "Course Name" into "coursename" key
+            columns: (header) => header.map(h => h.toLowerCase().trim().replace(/\s+/g, '')),
+            skip_empty_lines: true,
+            trim: true,
+          })
       );
 
       for await (const record of parser) {
@@ -181,6 +189,7 @@ export const academyResolvers = {
       try {
         // ordered: false ensures duplicates don't stop the whole import
         const docs = await AcademyModel.insertMany(results, { ordered: false });
+
         return {
           success: true,
           message: `Successfully imported ${docs.length} students. ${skippedRows.length} rows skipped.`,
