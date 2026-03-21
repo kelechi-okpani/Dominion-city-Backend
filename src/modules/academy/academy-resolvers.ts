@@ -111,7 +111,7 @@ export const academyResolvers = {
         // 3. Parse the stream
         const parser = stream.pipe(
           parse({
-            columns: true, // Uses CSV headers as keys
+            columns: (header) => header.map((h: string) => h.toLowerCase().trim().replace(/\s+/g, '')),
             skip_empty_lines: true,
             trim: true,
           })
@@ -123,6 +123,8 @@ export const academyResolvers = {
           
           // Normalize input: uppercase and convert spaces to underscores
           const course = record.CourseName?.toUpperCase().trim().replace(/\s+/g, '_');
+          const rawCourse = record.coursename || "";
+          const normalizedCourse = rawCourse.toUpperCase().trim().replace(/\s+/g, '_');
 
           if (validCourses.includes(course)) {
             // Phone Number Formatting: Add leading '0' if 10 digits
@@ -131,13 +133,20 @@ export const academyResolvers = {
               formattedPhone = `0${formattedPhone}`;
             }
 
+            let studentDate = new Date();
+            if (record.date) {
+              const [day, month, year] = record.date.split('/');
+              // Note: Months are 0-indexed in JS (January is 0)
+              studentDate = new Date(Number(year), Number(month) - 1, Number(day));
+            }
+
             results.push({
               name: record.Name,
               email: record.Email?.toLowerCase(),
-              courseName: course,
+              courseName: normalizedCourse,
               location: record.Location || 'DC ABUJA GUDU HQ',
               phone: formattedPhone,
-              date: record.Date ? new Date(record.Date) : new Date(),
+              date: studentDate,
               branchId: user.branchId,
               addedBy: user.id,      
               status: 'Enrolled'
@@ -148,6 +157,7 @@ export const academyResolvers = {
         // 4. Database Insertion
         try {
           const docs = await AcademyModel.insertMany(results, { ordered: false });
+
           return {
             success: true,
             message: `Successfully imported ${docs.length} students to your branch.`,
