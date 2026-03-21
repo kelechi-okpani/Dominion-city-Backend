@@ -91,35 +91,39 @@ export const academyResolvers = {
           }
     },
 
-    uploadEnrolledStudent: async (_: any, { file }: any, { user }: IResolverContext) => {
-      // 1. Check Auth
-      if (!user) throw new GraphQLError('Unauthorized');
+        uploadEnrolledStudent: async (_: any, { file }: any, { user }: IResolverContext) => {
+        // 1. Check Auth
+        if (!user) throw new GraphQLError('Unauthorized');
 
-      const { createReadStream } = await file;
-      const stream = createReadStream();
-      const results: any[] = [];
+        // 2. Resolve the file promise
+        const upload = await file;
+        
+        // Validation check for the stream function
+        if (!upload || typeof upload.createReadStream !== 'function') {
+          throw new GraphQLError('Invalid file upload: createReadStream is missing.');
+        }
 
-      // 2. Parse the stream
-      const parser = stream.pipe(
-        parse({
-          columns: true, // Uses CSV headers as keys
-          skip_empty_lines: true,
-          trim: true,
-        })
-      );
+        const stream = upload.createReadStream();
+        const results: any[] = [];
 
-      
-      
+        // 3. Parse the stream
+        const parser = stream.pipe(
+          parse({
+            columns: true, // Uses CSV headers as keys
+            skip_empty_lines: true,
+            trim: true,
+          })
+        );
+
         for await (const record of parser) {
-          // 1. Updated Valid Course List
+          // Define valid courses with underscores
           const validCourses = ['DLI_BASIC', 'DLI_ADVANCE', 'DCA_BASIC', 'DCA_ADVANCE'];
           
-          // Normalize input: uppercase and ensure spaces become underscores to match your list
+          // Normalize input: uppercase and convert spaces to underscores
           const course = record.CourseName?.toUpperCase().trim().replace(/\s+/g, '_');
 
           if (validCourses.includes(course)) {
-            
-            // 2. Phone Number Formatting
+            // Phone Number Formatting: Add leading '0' if 10 digits
             let formattedPhone = record.Phone?.toString().trim() || '';
             if (formattedPhone.length === 10) {
               formattedPhone = `0${formattedPhone}`;
@@ -129,8 +133,8 @@ export const academyResolvers = {
               name: record.Name,
               email: record.Email?.toLowerCase(),
               courseName: course,
-              location: record.Location || 'Main Campus',
-              phone: formattedPhone, // Uses the 0-prepended version
+              location: record.Location || 'DC ABUJA GUDU HQ',
+              phone: formattedPhone,
               date: record.Date ? new Date(record.Date) : new Date(),
               branchId: user.branchId,
               addedBy: user.id,      
@@ -139,27 +143,28 @@ export const academyResolvers = {
           }
         }
 
-        
-      // 3. Database Insertion
-      try {
-        // ordered: false ensures that if one row (like a duplicate email) fails, 
-        // the rest still upload.
-        const docs = await AcademyModel.insertMany(results, { ordered: false });
-        
-        return {
-          success: true,
-          message: `Successfully imported ${docs.length} students to your branch.`,
-          count: docs.length
-        };
-      } catch (err: any) {
-        // If some were duplicates, insertMany throws an error but still inserts the others
-        const insertedCount = err.insertedDocs?.length || 0;
-        return {
-          success: true,
-          message: `Import complete. Added ${insertedCount} records (skipped duplicates).`,
-          count: insertedCount
-        };
-      }
-    }
+        // 4. Database Insertion
+        try {
+          // ordered: false ensures that if one row fails (e.g. duplicate email), 
+          // the others still succeed.
+          const docs = await AcademyModel.insertMany(results, { ordered: false });
+          
+          return {
+            success: true,
+            message: `Successfully imported ${docs.length} students to your branch.`,
+            count: docs.length
+          };
+        } catch (err: any) {
+          // Mongoose insertMany returns successfully inserted docs in err.insertedDocs 
+          // when ordered is false and a bulk write error occurs.
+          const insertedCount = err.insertedDocs?.length || 0;
+          
+          return {
+            success: true,
+            message: `Import complete. Added ${insertedCount} records (skipped duplicates or invalid data).`,
+            count: insertedCount
+          };
+        }
+          }
   }
 };
