@@ -33,7 +33,7 @@ const startServer = async () => {
 
     // 1. Global Middlewares (Move these above the routes)
     app.use(cors<cors.CorsRequest>());
-    app.use(express.json()); // Use native express.json() instead of body-parser
+    // app.use(express.json()); // Use native express.json() instead of body-parser
 
     // 2. Base Routes
     app.get('/', (_req, res) => {

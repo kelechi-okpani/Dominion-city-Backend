@@ -3,8 +3,10 @@ import { AcademyModel } from './model/academy-model.js';
 import { UserRole } from '../branch/model/branch-model.js';
 import { IResolverContext } from '../../context.js';
 import { parse } from 'csv-parse';
+import { GraphQLUpload } from 'graphql-upload-ts';
 
 export const academyResolvers = {
+  Upload: GraphQLUpload,
   Query: {
     getAcademyStudents: async (_: any, { branchId, courseName, page = 1, limit = 20 }: any, { user }: IResolverContext) => {
       if (!user) throw new GraphQLError('Unauthenticated');
