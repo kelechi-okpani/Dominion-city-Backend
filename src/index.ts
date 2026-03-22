@@ -35,7 +35,7 @@ const startServer = async () => {
     await server.start();
 
     // 1. Global Middlewares (Move these above the routes)
-    app.use(cors<cors.CorsRequest>());
+    // app.use(cors<cors.CorsRequest>());
     // 1. UPDATED CORS CONFIGURATION
     app.use(cors({
       origin: [
