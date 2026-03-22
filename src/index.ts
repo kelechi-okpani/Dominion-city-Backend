@@ -36,7 +36,25 @@ const startServer = async () => {
 
     // 1. Global Middlewares (Move these above the routes)
     app.use(cors<cors.CorsRequest>());
+    // 1. UPDATED CORS CONFIGURATION
+    app.use(cors({
+      origin: [
+        'http://localhost:3000', 
+        'https://dominion-city-sayv.vercel.app/', 
+        'https://studio.apollographql.com'      // Allows Apollo Sandbox to work
+      ],
+      credentials: true,
+      methods: ['GET', 'POST', 'OPTIONS'],
+      allowedHeaders: [
+        'Content-Type', 
+        'Authorization', 
+        'x-apollo-operation-name', 
+        'apollo-require-preflight'
+      ]
+    }));
+
     // app.use(express.json()); // Use native express.json() instead of body-parser
+
 
     // 2. Base Routes
     app.get('/', (_req, res) => {
