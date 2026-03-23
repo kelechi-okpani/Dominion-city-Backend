@@ -5,34 +5,16 @@ export enum UserRole {
   USER = "USER",
 }
 
-// Enum for Abuja Branches
-export enum AbujaBranchName {
-  // Major Regional / HQ
-  ABUJA_HQ = "ABUJA_HQ",           // Durumi / Gudu area (Oladipo Diya St)
-  WUSE = "WUSE",                   // Wuse Zone 5 / Accra St
-  JABI = "JABI",                   // Jabi / Kado area
-  GWARINPA = "GWARINPA",           // Gwarinpa Estate
-  
-  // Satellite & Growing Branches
-  APO = "APO",                     // Apo / Gudu District
-  LUGBE = "LUGBE",                 // Lugbe / Airport Road
-  KUJE = "KUJE",                   // Kuje Area Council
-  KUBWA = "KUBWA",                 // Kubwa / PW area
-  MAITAMA = "MAITAMA",             // Maitama District
-  ASOKORO = "ASOKORO",             // Asokoro District
-  GARKI = "GARKI",                 // Garki Area
-  UTAKO = "UTAKO",                 // Utako District
-  NYANYA_MARARABA = "NYANYA_MARARABA", // Greater Abuja boundary
-  DAWAKI = "DAWAKI"                // Dawaki / Katampe extension
-}
-
 export interface IBranchUser extends Document {
   fullName: string;
   email: string;
   password?: string;
   role: UserRole;
-  branchName: AbujaBranchName; // Using the Enum
+  // CHANGE: Reference the Branch by ID instead of the static Enum name
+  branch: mongoose.Types.ObjectId | any; 
   isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 const BranchUserSchema: Schema = new Schema({
@@ -44,11 +26,11 @@ const BranchUserSchema: Schema = new Schema({
     enum: Object.values(UserRole), 
     default: UserRole.USER 
   },
-  branchName: { 
-    type: String, 
-    enum: Object.values(AbujaBranchName), 
-    required: true, 
-    unique: true // One user/account per branch
+  branch: { 
+    type: Schema.Types.ObjectId, 
+    ref: 'Branch', 
+    required: true,
+    unique: true
   },
   isActive: { type: Boolean, default: true }
 }, {

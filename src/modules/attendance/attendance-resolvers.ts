@@ -5,92 +5,168 @@ import { IResolverContext } from '../../context.js';
 
 export const attendanceResolvers = {
   Query: {
-     getBranchAttendance: async (_parent: any, { branchId, startDate, endDate }: any, { user }: IResolverContext) => {
-          if (!user) throw new GraphQLError('Authentication required.');
-    
-          const isHQ = user.role === UserRole.ADMIN;
-          const filter: any = {};
-    
-          // Access Control
-          if (isHQ) {
-            if (branchId) filter.branchId = branchId;
-          } else {
-            filter.branchId = user.branchId;
-          }
-    
-          // Date Filtering
-          if (startDate || endDate) {
-            filter.date = {};
-            if (startDate) filter.date.$gte = new Date(startDate);
-            if (endDate) filter.date.$lte = new Date(endDate);
-          }
-    
-          try {
-            return await AttendanceModel.find(filter).sort({ date: -1 });
-          } catch (error) {
-            throw new GraphQLError('Error fetching attendance records.');
-          }
-     },
-    
-     
+    getBranchAttendance: async (_parent: any, { branchId, startDate, endDate }: any, { user }: IResolverContext) => {
+      if (!user) throw new GraphQLError('Authentication required.');
+
+      const isHQ = user.role === UserRole.ADMIN;
+      const filter: any = {};
+
+      // 1. Access Control: Admins can filter by any branch; Users are locked to theirs
+      if (isHQ) {
+        if (branchId && branchId !== 'all') filter.branchId = branchId;
+      } else {
+        filter.branchId = user.branchId;
+      }
+
+      // 2. Date Range Filtering
+      if (startDate || endDate) {
+        filter.date = {};
+        if (startDate) filter.date.$gte = new Date(startDate);
+        if (endDate) filter.date.$lte = new Date(endDate);
+      }
+
+      try {
+        return await AttendanceModel.find(filter)
+          .sort({ date: -1 })
+          .populate('branchId'); 
+      } catch (error) {
+        throw new GraphQLError('Error fetching attendance records.');
+      }
+    },
+
     getAttendanceStats: async (_parent: any, { branchId }: any, { user }: IResolverContext) => {
       if (!user) throw new GraphQLError('Unauthorized');
 
       const isHQ = user.role === UserRole.ADMIN;
-      const targetBranch = isHQ ? (branchId || user.branchId) : user.branchId;
-
-      const records = await AttendanceModel.find({ branchId: targetBranch });
+      const filter: any = {};
       
-      if (records.length === 0) return null;
+      if (isHQ) {
+        if (branchId && branchId !== 'all') filter.branchId = branchId;
+      } else {
+        filter.branchId = user.branchId;
+      }
 
-      const totalSum = records.reduce((acc, curr) => acc + curr.total, 0);
-      const highest = Math.max(...records.map(r => r.total));
+      try {
+        const records = await AttendanceModel.find(filter).sort({ date: -1 });
+        
+        if (records.length === 0) return null;
 
-      return {
-        totalAvg: Math.round(totalSum / records.length),
-        highestAttendance: highest,
-        latestAttendance: records[0]
-      };
+        const totalSum = records.reduce((acc, curr) => acc + (curr.total || 0), 0);
+        const highest = Math.max(...records.map(r => r.total || 0));
+
+        return {
+          totalAvg: Math.round(totalSum / records.length),
+          highestAttendance: highest,
+          latestAttendance: records[0] 
+        };
+      } catch (error) {
+        throw new GraphQLError('Error generating attendance statistics.');
+      }
     }
   },
 
   Mutation: {
-    /**
-     * Submits a new attendance headcount. 
-     * The 'total' is automatically calculated by the Mongoose pre-save hook.
-     */
     submitAttendance: async (_parent: any, { input }: any, { user }: IResolverContext) => {
       if (!user) throw new GraphQLError('Unauthorized');
 
+      const isHQ = user.role === UserRole.ADMIN;
+
       try {
+        /**
+         * SECURITY LOGIC:
+         * If the user is an Admin, we accept the branchId from the form (input).
+         * If the user is a Branch staff, we ignore the input and use their session branchId.
+         */
+        const finalBranchId = isHQ ? input.branchId : user.branchId;
+
+        if (!finalBranchId) {
+          throw new GraphQLError('A valid Branch ID is required to save attendance.');
+        }
+
         const attendanceRecord = new AttendanceModel({
           ...input,
-          branchId: user.branchId, // Secured to the user's branch
-          markedBy: user.id
+          branchId: finalBranchId, 
+          markedBy: user.id,
+          // Server-side calculation to prevent data tampering or UI mismatches
+          total: Number(input.men || 0) + Number(input.women || 0) + Number(input.children || 0)
         });
 
-        return await attendanceRecord.save();
-      } catch (error) {
-        throw new GraphQLError('Failed to submit attendance. Check your inputs.', {
-          extensions: { code: 'BAD_USER_INPUT' }
+        const savedRecord = await attendanceRecord.save();
+        
+        // Populate branch details so the frontend receives the full object as per Schema
+        return await savedRecord.populate('branchId');
+      } catch (error: any) {
+        console.error("Submission Error:", error);
+        throw new GraphQLError(error.message || 'Failed to submit attendance.', {
+          extensions: { 
+            code: 'BAD_USER_INPUT',
+            invalidArgs: Object.keys(error.errors || {}) 
+          }
         });
       }
     },
 
-    /**
-     * Allows deleting a record (Admin only or record creator).
-     */
-    deleteAttendance: async (_parent: any, { id }: { id: string }, { user }: IResolverContext) => {
+    updateAttendance: async (_parent: any, { input }: any, { user }: IResolverContext) => {
       if (!user) throw new GraphQLError('Unauthorized');
 
-      const record = await AttendanceModel.findOneAndDelete({ 
-        _id: id, 
-        branchId: user.branchId // Safety: Can only delete within own branch
-      });
+      const { id, ...updateData } = input;
+      const isAdmin = user.role === UserRole.ADMIN;
+      
+      try {
+        const existing = await AttendanceModel.findById(id);
+        if (!existing) throw new GraphQLError('Record not found.');
 
-      if (!record) throw new GraphQLError('Record not found or access denied.');
+        // OWNERSHIP CHECK: Must be the person who marked it OR an Admin
+        const isOwner = existing.markedBy?.toString() === user.id.toString();
+        
+        if (!isOwner && !isAdmin) {
+          throw new GraphQLError('Access denied. You can only edit records you created.');
+        }
 
+        // Server-side recalculation of total
+        const men = updateData.men !== undefined ? updateData.men : existing.men;
+        const women = updateData.women !== undefined ? updateData.women : existing.women;
+        const children = updateData.children !== undefined ? updateData.children : existing.children;
+        const newTotal = Number(men) + Number(women) + Number(children);
+
+        const updatedRecord = await AttendanceModel.findByIdAndUpdate(
+          id,
+          { 
+            ...updateData, 
+            total: newTotal,
+            // Only Admins can re-assign a record to a different branch
+            branchId: isAdmin && updateData.branchId ? updateData.branchId : existing.branchId 
+          },
+          { new: true }
+        ).populate('branchId');
+
+        return updatedRecord;
+      } catch (error: any) {
+        throw new GraphQLError(error.message || 'Failed to update record.');
+      }
+    },
+
+    deleteAttendance: async (_parent: any, { id }: { id: string }, { user }: IResolverContext) => {
+    if (!user) throw new GraphQLError('Unauthorized');
+    
+    const isAdmin = user.role === UserRole.ADMIN;
+
+    try {
+      const existing = await AttendanceModel.findById(id);
+      if (!existing) throw new GraphQLError('Record not found.');
+
+      // OWNERSHIP CHECK
+      const isOwner = existing.markedBy?.toString() === user.id.toString();
+
+      if (!isOwner && !isAdmin) {
+        throw new GraphQLError('Access denied. You can only delete records you created.');
+      }
+
+      await AttendanceModel.findByIdAndDelete(id);
       return "Attendance record deleted successfully.";
+    } catch (error) {
+      throw new GraphQLError('Failed to delete attendance record.');
     }
+     }
   }
 };

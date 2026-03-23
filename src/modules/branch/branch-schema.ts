@@ -6,30 +6,21 @@ export const branchCoreTypeDefs = gql`
     USER
   }
 
-enum AbujaBranchName {
-    ABUJA_HQ
-    WUSE
-    JABI
-    GWARINPA
-    APO
-    LUGBE
-    KUJE
-    KUBWA
-    MAITAMA
-    ASOKORO
-    GARKI
-    UTAKO
-    NYANYA_MARARABA
-    DAWAKI
+  # 1. This is the new Branch type representing your MongoDB collection
+  type Branch {
+    id: ID!
+    name: String!
+    enumValue: String!
+    isActive: Boolean
   }
-
 
   type BranchProfile {
     id: ID!
     fullName: String!
     email: String!
     role: Role!
-    branchName: AbujaBranchName!
+    # 2. IMPORTANT: Change this from 'AbujaBranchName' to 'Branch'
+    branch: Branch! 
     isActive: Boolean
     createdAt: String
     updatedAt: String
@@ -43,18 +34,19 @@ enum AbujaBranchName {
   extend type Query {
     me: BranchProfile
     getSatelliteBranches: [BranchProfile]
+    # 3. Add this so the frontend can fetch the seeded branches
+    getAllBranches: [Branch!]!
   }
 
   extend type Mutation {
-    # Self-registration for branches
     register(
       fullName: String!, 
       email: String!, 
       password: String!,
-      branchName: AbujaBranchName!
+      # 4. Change this from 'AbujaBranchName' to 'ID'
+      branchId: ID! 
     ): BranchProfile
 
-    # Login for both ADMIN and USER
     login(email: String!, password: String!): LoginResponse
   }
 `;

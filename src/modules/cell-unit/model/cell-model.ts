@@ -3,38 +3,73 @@ import mongoose, { Schema, Document, Model } from 'mongoose';
 export interface ICell extends Document {
   branchId: mongoose.Types.ObjectId;
   cellName: string;
-  type: 'Zone' | 'Cell Unit'; // New Field
+  type: 'ZONE' | 'CELL'; 
   leader: string;
   locality: string; 
   meetingDay: string;
   memberCount: number;
-  status: 'Active' | 'Inactive';
+  status: 'ACTIVE' | 'INACTIVE';
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 const CellSchema = new Schema<ICell>(
   {
-    branchId: { type: Schema.Types.ObjectId, ref: 'Branch', required: true, index: true },
-    cellName: { type: String, required: true, trim: true },
+    branchId: { 
+      type: Schema.Types.ObjectId, 
+      ref: 'Branch', 
+      required: true, 
+      index: true 
+    },
+    cellName: { 
+      type: String, 
+      required: true, 
+      trim: true 
+    },
     type: { 
       type: String, 
-      enum: ['Zone', 'Cell Unit'], 
+      enum: ['ZONE', 'CELL'], 
       required: true,
-      default: 'Cell Unit' 
+      uppercase: true,
+      default: 'CELL' 
     },
-    leader: { type: String, required: true },
-    locality: { type: String, required: true },
+    leader: { 
+      type: String, 
+      required: true,
+      trim: true 
+    },
+    locality: { 
+      type: String, 
+      required: true,
+      trim: true 
+    },
     meetingDay: { 
       type: String, 
       default: 'Wednesday',
+      // Ensure this matches your form's selectable days
       enum: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
     },
-    memberCount: { type: Number, default: 0 },
-    status: { type: String, enum: ['Active', 'Inactive'], default: 'Active' }
+    memberCount: { 
+      type: Number, 
+      default: 0,
+      min: 0 
+    },
+    status: { 
+      type: String, 
+      enum: ['ACTIVE', 'INACTIVE'], 
+      uppercase: true,
+      default: 'ACTIVE' 
+    }
   },
-  { timestamps: true }
+  { 
+    timestamps: true,
+    // This ensures that when we query, we get 'id' instead of just '_id'
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true }
+  }
 );
 
-// Unique index remains the same: unique name within a branch
+// Prevent duplicate names within the same branch
 CellSchema.index({ cellName: 1, branchId: 1 }, { unique: true });
 
 export const CellModel: Model<ICell> = 

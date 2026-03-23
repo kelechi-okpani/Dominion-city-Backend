@@ -1,9 +1,15 @@
 import { gql } from 'apollo-server-express';
 
 export const attendanceTypeDefs = gql`
+  type Branch {
+    id: ID!
+    name: String!
+  }
+
   type Attendance {
     id: ID!
-    branchId: ID!
+    # Correctly mapped to Branch type for population
+    branchId: Branch! 
     date: String!
     event: String!
     description: String
@@ -16,12 +22,31 @@ export const attendanceTypeDefs = gql`
   }
 
   input CreateAttendanceInput {
+    # Added branchId so Admins can specify which branch they are logging for
+    branchId: ID
     date: String!
     event: String!
     description: String
     men: Int!
     women: Int!
     children: Int!
+  }
+
+  input UpdateAttendanceInput {
+    id: ID!
+    branchId: ID
+    date: String
+    event: String
+    description: String
+    men: Int
+    women: Int
+    children: Int
+  }
+
+  type AttendanceStats {
+    totalAvg: Int
+    highestAttendance: Int
+    latestAttendance: Attendance
   }
 
   extend type Query {
@@ -31,14 +56,9 @@ export const attendanceTypeDefs = gql`
     getAttendanceStats(branchId: ID): AttendanceStats
   }
 
-  type AttendanceStats {
-    totalAvg: Int
-    highestAttendance: Int
-    latestAttendance: Attendance
-  }
-
   extend type Mutation {
     submitAttendance(input: CreateAttendanceInput!): Attendance
+    updateAttendance(input: UpdateAttendanceInput!): Attendance
     deleteAttendance(id: ID!): String
   }
 `;
