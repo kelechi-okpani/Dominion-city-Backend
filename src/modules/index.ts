@@ -22,12 +22,17 @@ import { soulWinningResolvers } from './soul-winning/soul-resolvers.js';
 import { cellTypeDefs } from './cell-unit/cell-schema.js';
 import { cellResolvers } from './cell-unit/cell-resolvers.js';
 
+import { expenseResolvers } from './expense/expense-resolvers.js';
+import { expenseTypeDefs } from './expense/expense-schema.js';
+
 /**
  * Merging Type Definitions
  * mergeTypeDefs handles the 'extend type' logic automatically
  */
 export const typeDefs = mergeTypeDefs([
   commonTypeDefs,
+
+  expenseTypeDefs,
   branchCoreTypeDefs,
   departmentTypeDefs,
   attendanceTypeDefs,
@@ -42,6 +47,7 @@ export const typeDefs = mergeTypeDefs([
  */
 
 export const resolvers = mergeResolvers([
+  expenseResolvers,
   branchCoreResolvers,
   departmentResolvers,
   attendanceResolvers,

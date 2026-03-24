@@ -1,146 +1,104 @@
 import { GraphQLError } from 'graphql';
-import { DepartmentModel } from "./model/dept-model.js";
-import { DeptMemberModel } from "./model/dept-member-model.js"; 
+import mongoose from 'mongoose';
 import { IResolverContext } from '../../context.js';
+import { DepartmentModel, IDepartment, MemberModel } from './model/dept-model.js';
 
 export const departmentResolvers = {
   Query: {
- 
+    getBranchDepartments: async (
+      _: any, 
+      { page = 1, limit = 20 }: { page?: number; limit?: number }, 
+      { user }: IResolverContext
+    ) => {
+      if (!user) throw new GraphQLError('Unauthorized');
 
-    getBranchDepartments: async (_parent: unknown, { page = 1, limit = 10 }: any, { user }: IResolverContext) => {
-      if (!user) {
-        throw new GraphQLError('Authentication required.', {
-          extensions: { code: 'UNAUTHENTICATED' },
-        });
+      const filter: any = {};
+      // HQ/Admin sees all, others see their own branch units
+      if (user.role !== 'ADMIN') {
+        filter.branchId = user.branchId;
       }
 
-      try {
-        const skip = (page - 1) * limit;
-
-        return await DepartmentModel.find({ branchId: user.branchId })
-          .sort({ name: 1 })
-          .skip(skip)
-          .limit(limit);
-      } catch (error) {
-        throw new GraphQLError('Failed to fetch departments.', {
-          extensions: { code: 'INTERNAL_SERVER_ERROR' },
-        });
-      }
+      return await DepartmentModel.find(filter)
+        .sort({ name: 1 }) // Alphabetical by unit name
+        .limit(limit)
+        .skip((page - 1) * limit);
     },
 
+    getDepartmentById: async (
+      _: any, 
+      { id }: { id: string }, 
+      { user }: IResolverContext
+    ) => {
+      if (!user) throw new GraphQLError('Unauthorized');
+      
+      const dept = await DepartmentModel.findById(id);
+      if (!dept) throw new GraphQLError('Department not found');
+      
+      return dept;
+    }
+  },
 
-    getDepartmentById: async (_parent: unknown, { id }: { id: string }, { user }: IResolverContext) => {
-      if (!user) {
-        throw new GraphQLError('Authentication required.', {
-          extensions: { code: 'UNAUTHENTICATED' },
-        });
-      }
-
-      const department = await DepartmentModel.findOne({ _id: id, branchId: user.branchId });
-
-      if (!department) {
-        throw new GraphQLError('Department not found or access denied.', {
-          extensions: { code: 'NOT_FOUND' },
-        });
-      }
-
-      return department;
+  // Field Resolvers for nested data in your TypeDefs
+  Department: {
+    memberCount: async (parent: IDepartment) => {
+      return await MemberModel.countDocuments({ deptId: parent._id });
+    },
+    members: async (
+      parent: IDepartment, 
+      { page = 1, limit = 20 }: { page?: number; limit?: number }
+    ) => {
+      return await MemberModel.find({ deptId: parent._id })
+        .sort({ name: 1 })
+        .limit(limit)
+        .skip((page - 1) * limit);
     }
   },
 
   Mutation: {
+    createDepartment: async (
+      _: any, 
+      { input }: { input: any }, 
+      { user }: IResolverContext
+    ) => {
+      if (!user) throw new GraphQLError('Unauthorized');
 
-    createDepartment: async (_parent: unknown, { input }: any, { user }: IResolverContext) => {
-      if (!user) {
-        throw new GraphQLError('Unauthorized: Branch access required.', {
-          extensions: { code: 'FORBIDDEN' },
-        });
-      }
-
-      try {
-        const newDept = new DepartmentModel({
-          ...input,
-          branchId: user.branchId,
-          status: input.status || 'Active'
-        });
-
-        return await newDept.save();
-      } catch (error) {
-        throw new GraphQLError('Error creating department.', {
-          extensions: { code: 'BAD_USER_INPUT', detail: error },
-        });
-      }
+      return await DepartmentModel.create({
+        ...input,
+        branchId: user.branchId // Automatically tethered to creator's branch
+      });
     },
 
- 
-    addMemberToDepartment: async (_parent: unknown, { input }: any, { user }: IResolverContext) => {
-      if (!user) {
-        throw new GraphQLError('Unauthorized.', {
-          extensions: { code: 'FORBIDDEN' },
-        });
-      }
+    addMemberToDepartment: async (
+      _: any, 
+      { input }: { input: any }, 
+      { user }: IResolverContext
+    ) => {
+      if (!user) throw new GraphQLError('Unauthorized');
 
-      try {
-        // Generate initials for the avatar UI
-        const initials = input.name
-          .split(' ')
-          .filter(Boolean)
-          .map((n: string) => n[0])
-          .join('')
-          .toUpperCase();
+      // 1. Verify dept exists
+      const dept = await DepartmentModel.findById(input.deptId);
+      if (!dept) throw new GraphQLError('Target department does not exist');
 
-        const newMember = new DeptMemberModel({
-          ...input,
-          branchId: user.branchId, // Link to branch for master workforce lists
-          initials,
-          joined: new Date(), 
-        });
-
-        return await newMember.save();
-      } catch (error) {
-        throw new GraphQLError('Error adding member to department.', {
-          extensions: { code: 'INTERNAL_SERVER_ERROR' },
-        });
-      }
+      // 2. Create the member
+      return await MemberModel.create({
+        ...input,
+        deptId: input.deptId,
+        joined: new Date()
+      });
     },
 
-   
-    updateDepartment: async (_parent: unknown, { id, ...updates }: any, { user }: IResolverContext) => {
-      if (!user) {
-        throw new GraphQLError('Unauthorized.', {
-          extensions: { code: 'FORBIDDEN' },
-        });
-      }
-
-      const updatedDept = await DepartmentModel.findOneAndUpdate(
-        { _id: id, branchId: user.branchId },
-        { $set: updates },
+    updateDepartment: async (
+      _: any, 
+      { id, ...updates }: any, 
+      { user }: IResolverContext
+    ) => {
+      if (!user) throw new GraphQLError('Unauthorized');
+      
+      return await DepartmentModel.findByIdAndUpdate(
+        id, 
+        { $set: updates }, 
         { new: true }
       );
-
-      if (!updatedDept) {
-        throw new GraphQLError('Department not found or unauthorized.', {
-          extensions: { code: 'NOT_FOUND' },
-        });
-      }
-
-      return updatedDept;
     }
-  },
-
-
-    Department: {
-      members: async (parent: any, { page = 1, limit = 20 }: any) => {
-        const skip = (page - 1) * limit;
-
-        return await DeptMemberModel.find({ deptId: parent.id })
-          .sort({ name: 1 })
-          .skip(skip)
-          .limit(limit);
-      },
-      
-      memberCount: async (parent: any) => {
-        return await DeptMemberModel.countDocuments({ deptId: parent.id });
-      }
-    }
+  }
 };

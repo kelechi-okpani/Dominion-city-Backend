@@ -5,46 +5,46 @@ export const expenseTypeDefs = gql`
     id: ID!
     branchId: ID!
     title: String!
-    description: String
+    fullName: String!
     amount: Float!
-    category: String!
-    department: String
+    department: String!
     date: String!
     status: String!
-    recordedBy: ID!
+    recordedBy: BranchProfile
     createdAt: String
+    updatedAt: String
   }
 
   input CreateExpenseInput {
     title: String!
-    description: String
+    fullName: String!
     amount: Float!
-    category: String!
-    department: String
+    department: String!
     date: String
-    status: String
-  }
-
-  extend type Query {
-    # HQ can view all expenses or filter by branch; Satellites see only theirs
-    getBranchExpenses(branchId: ID, category: String, status: String, startDate: String, endDate: String): [Expense]
-    getExpenseStats(branchId: ID): ExpenseStats
-  }
-
-  type ExpenseStats {
-    totalSpent: Float
-    pendingAmount: Float
-    categoryBreakdown: [CategorySummary]
+    # Note: Status usually defaults to 'Pending' in the resolver
   }
 
   type CategorySummary {
-    category: String
-    total: Float
+    department: String!
+    total: Float!
+    percentage: Float!
+  }
+
+  type ExpenseStats {
+    totalRecorded: Float! 
+    primarySector: String!     
+    categoryBreakdown: [CategorySummary]!
+  }
+
+  extend type Query {
+    getBranchExpenses(branchId: ID): [Expense]
+    getExpenseStats(branchId: ID): ExpenseStats
   }
 
   extend type Mutation {
-    createExpense(input: CreateExpenseInput!): Expense
+    # Standard CRUD operations for tracking
+    createExpense(input: CreateExpenseInput!, branchId: ID!): Expense
     updateExpenseStatus(id: ID!, status: String!): Expense
-    deleteExpense(id: ID!): String
+    deleteExpense(id: ID!): Boolean
   }
 `;

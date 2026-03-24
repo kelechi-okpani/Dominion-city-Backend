@@ -2,33 +2,52 @@ import { GraphQLError } from 'graphql';
 import { CellModel } from './model/cell-model.js';
 import { UserRole } from '../branch/model/branch-model.js';
 import { IResolverContext } from '../../context.js';
+import { ExpenseModel } from '../expense/model/expense-model.js';
 
 export const cellResolvers = {
   Query: {
 
-      getBranchCells: async (_: any, { branchId }: { branchId?: string; }, { user }: IResolverContext) => {
-        if (!user) throw new GraphQLError('Unauthenticated');
+    getBranchExpenses: async (_: any, { branchId, category }: { branchId?: string; category?: string }, { user }: IResolverContext) => {
+      if (!user) throw new GraphQLError('Unauthenticated');
 
-        const filter: any = {};
-        const isHQ = user.role === UserRole.ADMIN;
+      const filter: any = {};
+      const isHQ = user.role === UserRole.ADMIN;
 
-        if (isHQ) {
-          if (branchId) filter.branchId = branchId;
-        } else {
-          // Ensure this matches your token/user payload property name
-          filter.branchId = user.branchId; 
+      // 1. Branch Filtering Logic (Matching your Cell approach)
+      if (isHQ) {
+        // Only apply filter if a specific branch is selected and it's not "all"
+        if (branchId && branchId !== "all") {
+          filter.branchId = branchId;
         }
+      } else {
+        // Satellite branches can only see their own data
+        filter.branchId = user.branchId; 
+      }
 
-        const cells = await CellModel.find(filter)
-          .sort({ type: 1, cellName: 1 })
+      // 2. Category Filtering Logic
+      if (category && category !== 'All') {
+        filter.category = category;
+      }
+
+      try {
+        const expenses = await ExpenseModel.find(filter)
+          .sort({ date: -1 })
+          .populate('recordedBy', 'fullName email') // Ensure User model has these fields
           .lean();
 
-        // FIX: Map _id to id for GraphQL compatibility
-        return cells.map(cell => ({
-          ...cell,
-          id: cell._id.toString(),
+        // 3. Map _id to id (The "Cell Resolver" Fix)
+        return expenses.map(expense => ({
+          ...expense,
+          id: expense._id.toString(),
+          // Ensure recordedBy is handled if populate fails or is empty
+          recordedBy: expense.recordedBy || null 
         }));
-},
+        
+      } catch (error: any) {
+        console.error("EXPENSE_RESOLVER_ERROR:", error.message);
+        throw new GraphQLError('Failed to fetch expenses');
+      }
+    },
     // If you have getCellById, it goes here...
   },
 

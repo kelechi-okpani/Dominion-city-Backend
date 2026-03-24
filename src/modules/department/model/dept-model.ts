@@ -1,61 +1,48 @@
-import mongoose, { Schema, Document, Model } from 'mongoose';
+import mongoose, { Schema, Document } from 'mongoose';
 
+// --- DEPARTMENT MODEL ---
 export interface IDepartment extends Document {
   name: string;
-  code: string;        // e.g., "CHOIR", "MEDIA"
-  branchId: mongoose.Types.ObjectId; 
-  lead: string;        // Matches your React 'lead' state
+  lead: string;
   description?: string;
-  status: 'Active' | 'Inactive' | 'Onboarding';
-  isActive: boolean;
-  createdAt: Date;
-  updatedAt: Date;
+  status: 'Active' | 'Onboarding' | 'Inactive';
+  branchId: mongoose.Types.ObjectId;
 }
 
-const DepartmentSchema = new Schema<IDepartment>(
-  {
-    name: { 
-      type: String, 
-      required: [true, 'Department name is required'], 
-      trim: true 
-    },
-    code: { 
-      type: String, 
-      required: [true, 'Department code is required'], 
-      uppercase: true,
-      trim: true 
-    },
-    branchId: { 
-      type: Schema.Types.ObjectId, 
-      ref: 'Branch', 
-      required: true, 
-      index: true 
-    }, 
-    lead: { 
-      type: String, 
-      required: [true, 'Department lead is required'] 
-    },
-    description: { type: String },
-    status: { 
-      type: String, 
-      enum: ['Active', 'Inactive', 'Onboarding'], 
-      default: 'Active' 
-    },
-    isActive: { type: Boolean, default: true }
-  },
-  {
-    timestamps: true,
-    toJSON: { virtuals: true },
-    toObject: { virtuals: true }
+const DepartmentSchema = new Schema<IDepartment>({
+  name: { type: String, required: true },
+  lead: { type: String, required: true },
+  description: String,
+  status: { type: String, default: 'Active', enum: ['Active', 'Onboarding', 'Inactive'] },
+  branchId: { type: Schema.Types.ObjectId, ref: 'Branch', required: true }
+}, { timestamps: true });
+
+export const DepartmentModel = mongoose.model<IDepartment>('Department', DepartmentSchema);
+
+// --- MEMBER MODEL ---
+export interface IDepartmentMember extends Document {
+  deptId: mongoose.Types.ObjectId;
+  name: string;
+  phone: string;
+  email: string;
+  initials: string;
+  joined: Date;
+}
+
+const MemberSchema = new Schema<IDepartmentMember>({
+  deptId: { type: Schema.Types.ObjectId, ref: 'Department', required: true },
+  name: { type: String, required: true },
+  phone: { type: String, required: true },
+  email: { type: String, required: true },
+  initials: String,
+  joined: { type: Date, default: Date.now }
+}, { timestamps: true });
+
+MemberSchema.pre('save', function(next) {
+  if (this.name) {
+    this.initials = this.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
   }
-);
-
-// Prevent duplicate codes within the same branch
-DepartmentSchema.index({ branchId: 1, code: 1 }, { unique: true });
-
-DepartmentSchema.virtual('id').get(function () {
-  return this._id.toHexString();
+  next();
 });
 
-export const DepartmentModel: Model<IDepartment> = 
-  mongoose.models.Department || mongoose.model<IDepartment>('Department', DepartmentSchema);
+export const MemberModel = mongoose.model<IDepartmentMember>('DepartmentMember', MemberSchema);
