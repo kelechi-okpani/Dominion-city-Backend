@@ -26,6 +26,8 @@ import { expenseResolvers } from './expense/expense-resolvers.js';
 import { expenseTypeDefs } from './expense/expense-schema.js';
 import { analyticsTypeDefs } from './Analytics/typeDefs.js';
 import { analyticsResolvers } from './Analytics/resolvers.js';
+import { InstagramTypeDefs } from './instagram/instagram-typeDefs.js';
+import { instagramResolvers } from './instagram/instagram-resolvers.js';
 
 /**
  * Merging Type Definitions
@@ -42,7 +44,9 @@ export const typeDefs = mergeTypeDefs([
   attendanceTypeDefs,
   soulWinningTypeDefs,
   academyTypeDefs,
-  cellTypeDefs
+  cellTypeDefs,
+
+  InstagramTypeDefs
 ]);
 
 /**
@@ -60,5 +64,7 @@ export const resolvers = mergeResolvers([
   attendanceResolvers,
   soulWinningResolvers,
   academyResolvers,
-  cellResolvers
+  cellResolvers,
+
+  instagramResolvers
 ]) as any;  
