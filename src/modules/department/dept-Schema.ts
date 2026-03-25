@@ -1,52 +1,69 @@
 import { gql } from 'apollo-server-express';
 
 export const departmentTypeDefs = gql`
-  type Department {
-    id: ID!
-    name: String!
-    lead: String
-    description: String
-    status: String
-    branchId: ID!
-    memberCount: Int 
-    # This was causing the error because DepartmentMember wasn't defined below
-    members(page: Int, limit: Int): [DepartmentMember]
-  }
+# --- CORE TYPES ---
 
-  # Define the missing type here
-  type DepartmentMember {
-    id: ID!
-    deptId: ID!
-    name: String!
-    phone: String
-    email: String
-    initials: String
-    joined: String
-  }
+type Department {
+  id: ID!
+  name: String!
+  lead: String!        # The H.O.D / Unit Lead
+  description: String
+  status: String       # Active, Onboarding, Inactive
+  branchId: ID!
+  createdAt: String
+  updatedAt: String
+  
+  memberCount: Int
+  members(page: Int, limit: Int): [DepartmentMember]
+}
 
-  input CreateDepartmentInput {
-    name: String!
-    lead: String
-    description: String
-    status: String
-  }
+type DepartmentMember {
+  id: ID!
+  deptId: ID!
+  name: String!
+  phone: String!
+  email: String
+  initials: String     # Automatically generated (e.g., "JD")
+  joined: String       # ISO Date string
+  createdAt: String
+}
 
-  # Input for the addMember mutation we built in the resolver
-  input AddMemberToDeptInput {
-    deptId: ID!
-    name: String!
-    phone: String
-    email: String
-  }
+# --- INPUTS ---
 
-  extend type Query {
-    getBranchDepartments(page: Int, limit: Int): [Department]
-    getDepartmentById(id: ID!): Department
-  }
+input CreateDepartmentInput {
+  name: String!
+  lead: String!
+  description: String
+  status: String
+}
 
-  extend type Mutation {
-    createDepartment(input: CreateDepartmentInput!): Department
-    addMemberToDepartment(input: AddMemberToDeptInput!): DepartmentMember
-    updateDepartment(id: ID!, name: String, lead: String, status: String, description: String): Department
-  }
+input UpdateDepartmentInput {
+  name: String
+  lead: String
+  description: String
+  status: String
+}
+
+input AddMemberToDeptInput {
+  deptId: ID!
+  name: String!
+  phone: String!
+  email: String
+}
+
+# --- QUERIES & MUTATIONS ---
+
+extend type Query {
+  getBranchDepartments(page: Int, limit: Int): [Department]
+  getDepartmentById(id: ID!): Department
+}
+
+extend type Mutation {
+  createDepartment(input: CreateDepartmentInput!): Department
+  addMemberToDepartment(input: AddMemberToDeptInput!): DepartmentMember
+  updateDepartment(id: ID!, input: UpdateDepartmentInput!): Department
+  removeMemberFromDepartment(memberId: ID!): String
+}
+
+
 `;

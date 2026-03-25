@@ -24,6 +24,8 @@ import { cellResolvers } from './cell-unit/cell-resolvers.js';
 
 import { expenseResolvers } from './expense/expense-resolvers.js';
 import { expenseTypeDefs } from './expense/expense-schema.js';
+import { analyticsTypeDefs } from './Analytics/typeDefs.js';
+import { analyticsResolvers } from './Analytics/resolvers.js';
 
 /**
  * Merging Type Definitions
@@ -32,6 +34,8 @@ import { expenseTypeDefs } from './expense/expense-schema.js';
 export const typeDefs = mergeTypeDefs([
   commonTypeDefs,
 
+  analyticsTypeDefs,
+  
   expenseTypeDefs,
   branchCoreTypeDefs,
   departmentTypeDefs,
@@ -47,6 +51,9 @@ export const typeDefs = mergeTypeDefs([
  */
 
 export const resolvers = mergeResolvers([
+
+  analyticsResolvers,
+
   expenseResolvers,
   branchCoreResolvers,
   departmentResolvers,

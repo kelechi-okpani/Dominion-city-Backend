@@ -33,7 +33,7 @@ const MemberSchema = new Schema<IDepartmentMember>({
   deptId: { type: Schema.Types.ObjectId, ref: 'Department', required: true },
   name: { type: String, required: true },
   phone: { type: String, required: true },
-  email: { type: String, required: true },
+  email: { type: String },
   initials: String,
   joined: { type: Date, default: Date.now }
 }, { timestamps: true });
