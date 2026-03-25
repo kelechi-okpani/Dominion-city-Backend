@@ -30,7 +30,7 @@ export const syncInstagramFeed = async (force = false) => {
 
         const input = {
             "directUrls": [process.env.MAIN_ABUJA_IG_URL],
-            "resultsLimit": 100,
+            "resultsLimit": 200,
             "resultsType": "posts"
         };
 

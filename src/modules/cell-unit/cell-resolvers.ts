@@ -7,47 +7,56 @@ import { ExpenseModel } from '../expense/model/expense-model.js';
 export const cellResolvers = {
   Query: {
 
-    getBranchExpenses: async (_: any, { branchId, category }: { branchId?: string; category?: string }, { user }: IResolverContext) => {
+  getBranchCells: async (
+      _: any, 
+      { branchId, type }: { branchId: string; type?: string }, 
+      { user }: IResolverContext
+    ) => {
+      // 1. Authentication Check
       if (!user) throw new GraphQLError('Unauthenticated');
 
       const filter: any = {};
       const isHQ = user.role === UserRole.ADMIN;
 
-      // 1. Branch Filtering Logic (Matching your Cell approach)
+      // 2. Branch Hierarchy Logic
+      // If the user is HQ/Admin, they can view any branchId they pass.
+      // If they are a satellite branch, they are locked to their own branchId.
       if (isHQ) {
-        // Only apply filter if a specific branch is selected and it's not "all"
         if (branchId && branchId !== "all") {
           filter.branchId = branchId;
         }
       } else {
-        // Satellite branches can only see their own data
+        // SECURITY: Satellite users cannot query other branches even if they pass a different branchId
         filter.branchId = user.branchId; 
       }
 
-      // 2. Category Filtering Logic
-      if (category && category !== 'All') {
-        filter.category = category;
+      // 3. Type Filtering (Filter by 'ZONE' or 'CELL' if provided)
+      if (type && type !== 'ALL') {
+        filter.type = type.toUpperCase();
       }
 
       try {
-        const expenses = await ExpenseModel.find(filter)
-          .sort({ date: -1 })
-          .populate('recordedBy', 'fullName email') // Ensure User model has these fields
+        const cells = await CellModel.find(filter)
+          .sort({ cellName: 1 }) // Alphabetical sorting is usually better for lists
+          .populate('branchId', 'name') // Optional: if you want branch details
           .lean();
 
-        // 3. Map _id to id (The "Cell Resolver" Fix)
-        return expenses.map(expense => ({
-          ...expense,
-          id: expense._id.toString(),
-          // Ensure recordedBy is handled if populate fails or is empty
-          recordedBy: expense.recordedBy || null 
+        // 4. Data Mapping
+        // This handles the MongoDB _id -> GraphQL id conversion 
+        // and ensures memberCount defaults to 0
+        return cells.map(cell => ({
+          ...cell,
+          id: cell._id.toString(),
+          branchId: cell.branchId?._id?.toString() || cell.branchId.toString(),
+          memberCount: cell.memberCount || 0,
+          status: cell.status || 'ACTIVE'
         }));
         
       } catch (error: any) {
-        console.error("EXPENSE_RESOLVER_ERROR:", error.message);
-        throw new GraphQLError('Failed to fetch expenses');
+        console.error("GET_BRANCH_CELLS_ERROR:", error.message);
+        throw new GraphQLError('Failed to retrieve cell records');
       }
-    },
+},
     // If you have getCellById, it goes here...
   },
 

@@ -42,7 +42,7 @@ export const cellTypeDefs = gql`
   }
 
   extend type Query {
-    getBranchCells(branchId: ID, type: CellType): [Cell]
+    getBranchCells(branchId: ID!): [Cell]
     getCellById(id: ID!): Cell
   }
 
