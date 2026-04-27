@@ -4,42 +4,52 @@ import { BranchUserModel } from '../modules/branch/model/branch-model.js';
 
 export const seedAdmin = async () => {
   try {
-    // 1. Find the National Team/HQ branch to link the admin to
-    const hqBranch = await BranchModel.findOne({ enumValue: 'ABUJA_HQ' });
+    // 1. Check if an Admin USER already exists (to avoid duplicates)
+    const adminExists = await BranchUserModel.findOne({ role: 'ADMIN' });
+    if (adminExists) {
+      console.log('ℹ️ [Seeder] Admin user already exists. Skipping...');
+      return;
+    }
+
+    // 2. Try to find the HQ Branch. If it doesn't exist, CREATE it.
+    let hqBranch = await BranchModel.findOne({ role: 'ADMIN' });
 
     if (!hqBranch) {
-      console.warn('⚠️ [Seeder] HQ Branch (ABUJA_HQ) not found. Seed branches first!');
-      return;
+      console.log('ℹ️ [Seeder] HQ Branch missing. Creating default HQ branch...');
+      hqBranch = await BranchModel.create({
+        fullName: "System Administrator",
+        name: "Super Admin National",
+        role: "ADMIN",
+        enumValue: "DC_NATIONAL",
+        isActive: true
+      });
+      console.log('✅ [Seeder] HQ Branch created.');
     }
 
-    // 2. Check if an admin for this branch or email already exists
-    const adminExists = await BranchUserModel.findOne({
-      $or: [
-        { email: (process.env.ADMIN_EMAIL || "admin@yourdomain.com").toLowerCase() },
-        { branch: hqBranch._id }
-      ]
-    });
+    // 3. Prepare Admin Credentials
+    const adminEmail = (process.env.ADMIN_EMAIL || "").toLowerCase();
+    const adminPassword = process.env.ADMIN_PASSWORD || '';
+    const hashedPassword = await bcrypt.hash(adminPassword, 12);
 
-    if (adminExists) {
-      console.log('ℹ️ [Seeder] Admin or HQ Branch user already exists. Skipping...');
-      return;
-    }
-
-    // 3. Hash password and create admin
-    const hashedPassword = await bcrypt.hash(process.env.ADMIN_PASSWORD || 'DefaultAdmin123!', 12);
-
-    const admin = new BranchUserModel({
+    // 4. Create the Admin User linked to the hqBranch ID
+    const newAdmin = new BranchUserModel({
       fullName: "System Administrator",
-      email: (process.env.ADMIN_EMAIL || "admin@yourdomain.com").toLowerCase(),
+      email: adminEmail,
       password: hashedPassword,
-      role: UserRole.ADMIN, // Explicitly set as ADMIN
-      branch: hqBranch._id,
+      role: "ADMIN",
+      branch: hqBranch._id, // Now guaranteed to have an ID
       isActive: true,
     });
 
-    await admin.save();
-    console.log(`✅ [Seeder] Admin account created and linked to ${hqBranch.name}.`);
+    await newAdmin.save();
+    
+    console.log('---');
+    console.log(`🚀 [Seeder] Admin account successfully initialized.`);
+    console.log(`📧 Email: ${adminEmail}`);
+    console.log(`🏢 Branch: ${hqBranch.name}`);
+    console.log('---');
+
   } catch (error) {
-    console.error('❌ [Seeder] Error seeding admin:', error);
+    console.error('❌ [Seeder] Critical error during seeding:', error);
   }
 };

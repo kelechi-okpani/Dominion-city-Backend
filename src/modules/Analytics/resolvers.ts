@@ -12,7 +12,8 @@ export const analyticsResolvers = {
     getAnalytics: async (_parent: any, { branchId }: { branchId?: string }, { user }: any) => {
       if (!user) throw new GraphQLError('Unauthorized');
 
-      const isHQ = user.branch?.enumValue === 'ABUJA_HQ';
+      // const isHQ = user.branch?.enumValue === 'ABUJA_HQ';
+      const isHQ = user.branch?.enumValue === 'DC_NATIONAL';
       const effectiveBranchId = isHQ 
         ? (branchId === 'all' ? undefined : branchId) 
         : user.branch?.id;
